@@ -127,7 +127,7 @@ def format_source_summary(source: Dict[str, Any]) -> str:
 
 # Tool definitions
 SEARCH_WORKS_TOOL = Tool(
-    name="search_works",
+    name="OpenAlex_search_works",
     description="Search for scholarly works (papers, articles, books) in OpenAlex",
     inputSchema={
         "type": "object",
@@ -162,7 +162,7 @@ SEARCH_WORKS_TOOL = Tool(
             },
             "sort": {
                 "type": "string",
-                "enum": ["cited_by_count", "publication_date"],
+                "enum": ["publication_date", "relevance_score"],
                 "description": "Sort order for results (default: relevance)"
             },
             "limit": {
@@ -178,7 +178,7 @@ SEARCH_WORKS_TOOL = Tool(
 )
 
 SEARCH_AUTHORS_TOOL = Tool(
-    name="search_authors",
+    name="OpenAlex_search_authors",
     description="Search for authors/researchers in OpenAlex",
     inputSchema={
         "type": "object",
@@ -221,7 +221,7 @@ SEARCH_AUTHORS_TOOL = Tool(
 )
 
 SEARCH_INSTITUTIONS_TOOL = Tool(
-    name="search_institutions",
+    name="OpenAlex_search_institutions",
     description="Search for academic institutions in OpenAlex",
     inputSchema={
         "type": "object",
@@ -261,7 +261,7 @@ SEARCH_INSTITUTIONS_TOOL = Tool(
 )
 
 SEARCH_SOURCES_TOOL = Tool(
-    name="search_sources",
+    name="OpenAlex_search_sources",
     description="Search for journals, conferences, and other publication venues in OpenAlex",
     inputSchema={
         "type": "object",
@@ -305,7 +305,7 @@ SEARCH_SOURCES_TOOL = Tool(
 )
 
 GET_WORK_DETAILS_TOOL = Tool(
-    name="get_work_details",
+    name="OpenAlex_get_work_details",
     description="Get detailed information about a specific work by its OpenAlex ID or DOI",
     inputSchema={
         "type": "object",
@@ -320,7 +320,7 @@ GET_WORK_DETAILS_TOOL = Tool(
 )
 
 GET_AUTHOR_PROFILE_TOOL = Tool(
-    name="get_author_profile",
+    name="OpenAlex_get_author_profile",
     description="Get detailed profile information about a specific author by their OpenAlex ID or ORCID",
     inputSchema={
         "type": "object",
@@ -335,7 +335,7 @@ GET_AUTHOR_PROFILE_TOOL = Tool(
 )
 
 GET_CITATIONS_TOOL = Tool(
-    name="get_citations",
+    name="OpenAlex_get_citations",
     description="Get works that cite a specific work, useful for citation analysis",
     inputSchema={
         "type": "object",
@@ -362,7 +362,7 @@ GET_CITATIONS_TOOL = Tool(
 )
 
 DOWNLOAD_PAPER_TOOL = Tool(
-    name="download_paper",
+    name="OpenAlex_download_paper",
     description="Download a paper's PDF if available through open access",
     inputSchema={
         "type": "object",
@@ -390,6 +390,10 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
     query = arguments["query"]
     limit = arguments.get("limit", 10)
     sort = arguments.get("sort")  # No default sort - let OpenAlex use relevance
+    
+    # Filter out invalid sort values for works
+    if sort == "cited_by_count":
+        sort = None  # Use default relevance instead
 
     # Build filter parameters
     filter_params = {}
@@ -407,14 +411,14 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
     if year_to is not None:
         year_to = int(year_to)
 
+    # Always use date range filters for year filtering
     if year_from and year_to:
-        # Use date range filters for both
         filter_params["from_publication_date"] = f"{year_from}-01-01"
         filter_params["to_publication_date"] = f"{year_to}-12-31"
     elif year_from:
-        filter_params["publication_year"] = f">={year_from}"
+        filter_params["from_publication_date"] = f"{year_from}-01-01"
     elif year_to:
-        filter_params["publication_year"] = f"<={year_to}"
+        filter_params["to_publication_date"] = f"{year_to}-12-31"
 
     if venue := arguments.get("venue"):
         filter_params["primary_location.source.display_name.search"] = venue
@@ -461,7 +465,7 @@ async def search_authors(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     """Search for authors in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "cited_by_count")
+    sort = arguments.get("sort")
 
     # Build filter parameters
     filter_params = {}
@@ -514,7 +518,7 @@ async def search_institutions(client: OpenAlexClient, arguments: Dict[str, Any])
     """Search for institutions in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "cited_by_count")
+    sort = arguments.get("sort")
 
     # Build filter parameters
     filter_params = {}
@@ -564,7 +568,7 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     """Search for sources in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "cited_by_count")
+    sort = arguments.get("sort")
 
     # Build filter parameters
     filter_params = {}

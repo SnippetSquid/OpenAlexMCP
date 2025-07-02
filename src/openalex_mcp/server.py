@@ -22,8 +22,8 @@ mcp = FastMCP("openalex-mcp")
 email = os.getenv("OPENALEX_EMAIL")
 
 
-@mcp.tool()
-async def search_works_tool(
+@mcp.tool(name="OpenAlex_search_works")
+async def OpenAlex_search_works(
     query: str,
     author: str = None,
     year_from: int = None,
@@ -31,7 +31,7 @@ async def search_works_tool(
     venue: str = None,
     topic: str = None,
     open_access: bool = None,
-    sort: str = "relevance_score",
+    sort: str = None,
     limit: int = 10
 ) -> str:
     """Search for scholarly works (papers, articles, books) in OpenAlex."""
@@ -55,14 +55,14 @@ async def search_works_tool(
         return result[0].text if result else "No results found"
 
 
-@mcp.tool()
-async def search_authors_tool(
+@mcp.tool(name="OpenAlex_search_authors")
+async def OpenAlex_search_authors(
     query: str,
     institution: str = None,
     topic: str = None,
     h_index_min: int = None,
     works_count_min: int = None,
-    sort: str = "relevance_score",
+    sort: str = None,
     limit: int = 10
 ) -> str:
     """Search for authors/researchers in OpenAlex."""
@@ -84,13 +84,13 @@ async def search_authors_tool(
         return result[0].text if result else "No results found"
 
 
-@mcp.tool()
-async def search_institutions_tool(
+@mcp.tool(name="OpenAlex_search_institutions")
+async def OpenAlex_search_institutions(
     query: str,
     country: str = None,
     institution_type: str = None,
     works_count_min: int = None,
-    sort: str = "relevance_score",
+    sort: str = None,
     limit: int = 10
 ) -> str:
     """Search for academic institutions in OpenAlex."""
@@ -111,14 +111,14 @@ async def search_institutions_tool(
         return result[0].text if result else "No results found"
 
 
-@mcp.tool()
-async def search_sources_tool(
+@mcp.tool(name="OpenAlex_search_sources")
+async def OpenAlex_search_sources(
     query: str,
     source_type: str = None,
     publisher: str = None,
     open_access: bool = None,
     works_count_min: int = None,
-    sort: str = "relevance_score",
+    sort: str = None,
     limit: int = 10
 ) -> str:
     """Search for journals, conferences, and other publication venues in OpenAlex."""
@@ -140,8 +140,8 @@ async def search_sources_tool(
         return result[0].text if result else "No results found"
 
 
-@mcp.tool()
-async def get_work_details_tool(work_id: str) -> str:
+@mcp.tool(name="OpenAlex_get_work_details")
+async def OpenAlex_get_work_details(work_id: str) -> str:
     """Get detailed information about a specific work by its OpenAlex ID or DOI."""
     client = OpenAlexClient(email=email)
     arguments = {"work_id": work_id}
@@ -151,8 +151,8 @@ async def get_work_details_tool(work_id: str) -> str:
         return result[0].text if result else "Work not found"
 
 
-@mcp.tool()
-async def get_author_profile_tool(author_id: str) -> str:
+@mcp.tool(name="OpenAlex_get_author_profile")
+async def OpenAlex_get_author_profile(author_id: str) -> str:
     """Get detailed profile information about a specific author by their OpenAlex ID or ORCID."""
     client = OpenAlexClient(email=email)
     arguments = {"author_id": author_id}
@@ -162,8 +162,8 @@ async def get_author_profile_tool(author_id: str) -> str:
         return result[0].text if result else "Author not found"
 
 
-@mcp.tool()
-async def get_citations_tool(
+@mcp.tool(name="OpenAlex_get_citations")
+async def OpenAlex_get_citations(
     work_id: str,
     sort: str = "publication_date",
     limit: int = 20
@@ -181,8 +181,8 @@ async def get_citations_tool(
         return result[0].text if result else "No citations found"
 
 
-@mcp.tool()
-async def download_paper_tool(
+@mcp.tool(name="OpenAlex_download_paper")
+async def OpenAlex_download_paper(
     work_id: str,
     output_path: str = ".",
     filename: str = None

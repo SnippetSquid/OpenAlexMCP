@@ -102,3 +102,10 @@ When debugging API issues:
 5. Check filter syntax follows OpenAlex format: `attribute:value`
 6. For year ranges, use `from_publication_date` and `to_publication_date` when both bounds needed
 7. If getting 400 "Invalid" errors, check if `OPENALEX_EMAIL` is set to a test/fake email - unset it or use a real email
+
+### Updating MCP in Claude Desktop
+
+After making code changes, to update the MCP server in Claude Desktop:
+1. Restart Claude Desktop completely (quit and reopen)
+
+This ensures Claude Desktop picks up the updated code when using the local Python environment to run the server.

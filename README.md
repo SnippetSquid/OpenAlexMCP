@@ -18,31 +18,17 @@ A Model Context Protocol (MCP) server that provides access to the OpenAlex schol
 
 ## Installation
 
-### Option 1: From PyPI (Recommended)
-```bash
-# Install with uv (recommended)
-uv add openalex-mcp
-
-# Or install with pip
-pip install openalex-mcp
-```
-
-### Option 2: From Source with uv
-```bash
-# Clone and install with uv
-git clone https://github.com/your-username/openalex-mcp.git
-cd openalex-mcp
-uv sync
-
-# Run tests
-uv run pytest tests/ -v
-```
-
-### Option 3: From Source with pip
+### Development Setup
 ```bash
 git clone https://github.com/your-username/openalex-mcp.git
 cd openalex-mcp
-pip install -e .
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -e ".[dev]"
 ```
 
 ## Configuration
@@ -157,51 +143,17 @@ Get works that cite a specific work for citation analysis.
 
 ### Claude Desktop
 
-#### Option 1: Using uv run (Recommended for development)
-Add to your Claude Desktop configuration:
-
+#### Option 1: Using pip installation (Recommended)
 ```json
 {
   "mcpServers": {
     "OpenAlexMCP": {
-      "command": "uv",
+      "command": "/path/to/venv/bin/python",
       "args": [
-        "run",
-        "--directory",
-        "/path/to/openalex-mcp",
-        "openalex-mcp"
+        "-m",
+        "src.openalex_mcp.server"
       ],
-      "env": {
-        "OPENALEX_EMAIL": "your.email@example.com"
-      }
-    }
-  }
-}
-```
-
-#### Option 2: Using uvx (For published package)
-```json
-{
-  "mcpServers": {
-    "OpenAlexMCP": {
-      "command": "uvx",
-      "args": [
-        "openalex-mcp"
-      ],
-      "env": {
-        "OPENALEX_EMAIL": "your.email@example.com"
-      }
-    }
-  }
-}
-```
-
-#### Option 3: Traditional pip installation
-```json
-{
-  "mcpServers": {
-    "OpenAlexMCP": {
-      "command": "openalex-mcp",
+      "cwd": "/path/to/openalex-mcp",
       "env": {
         "OPENALEX_EMAIL": "your.email@example.com"
       }
@@ -232,13 +184,6 @@ Add to your Continue configuration:
 
 ### Setup Development Environment
 
-#### With uv (Recommended)
-```bash
-git clone https://github.com/your-username/openalex-mcp.git
-cd openalex-mcp
-uv sync --group dev
-```
-
 #### With pip
 ```bash
 git clone https://github.com/your-username/openalex-mcp.git
@@ -251,22 +196,6 @@ pip install -e ".[dev]"
 The project includes a comprehensive test suite with **127 passing tests** covering unit tests, integration tests, and full code coverage.
 
 #### Quick Test Commands
-
-##### With uv (Recommended)
-```bash
-# Run all tests
-uv run pytest tests/ -v
-
-# Run unit tests only (fast, no network required)
-uv run pytest tests/ -m "not slow and not integration" -v
-
-# Run with coverage report
-uv run pytest tests/ --cov=src --cov-report=html
-
-# Run specific test files
-uv run pytest tests/test_client.py -v
-uv run pytest tests/test_tools.py -v
-```
 
 ##### With pip/Python
 ```bash
@@ -350,13 +279,6 @@ pytest -m "not integration and not slow"
 
 ### Code Formatting
 
-#### With uv
-```bash
-uv run black src/ tests/
-uv run ruff check src/ tests/
-uv run mypy src/
-```
-
 #### With pip/Python
 ```bash
 black src/ tests/
@@ -366,10 +288,10 @@ mypy src/
 
 ### Building and Packaging
 
-#### With uv (Recommended)
+#### With pip/build
 ```bash
 # Build source distribution and wheel
-uv build
+python -m build
 
 # This creates:
 # - dist/openalex_mcp-1.0.0.tar.gz

@@ -15,14 +15,14 @@ async def test_list_tools():
 
     tool_names = [tool.name for tool in tools]
     expected_tools = [
-        "search_works_tool",
-        "search_authors_tool",
-        "search_institutions_tool",
-        "search_sources_tool",
-        "get_work_details_tool",
-        "get_author_profile_tool",
-        "get_citations_tool",
-        "download_paper_tool"
+        "OpenAlex_search_works",
+        "OpenAlex_search_authors",
+        "OpenAlex_search_institutions",
+        "OpenAlex_search_sources",
+        "OpenAlex_get_work_details",
+        "OpenAlex_get_author_profile",
+        "OpenAlex_get_citations",
+        "OpenAlex_download_paper"
     ]
 
     for expected_tool in expected_tools:
@@ -33,12 +33,12 @@ async def test_list_tools():
 async def test_search_works_tool():
     """Test search_works_tool function."""
     with patch('src.openalex_mcp.server.search_works', new_callable=AsyncMock) as mock_search:
-        from src.openalex_mcp.server import search_works_tool
+        from src.openalex_mcp.server import OpenAlex_search_works
 
         # Mock the search_works function to return expected format
         mock_search.return_value = [MagicMock(text="Mock search result")]
 
-        result = await search_works_tool("machine learning", limit=5)
+        result = await OpenAlex_search_works("machine learning", limit=5)
 
         assert result == "Mock search result"
         mock_search.assert_awaited_once()
@@ -48,11 +48,11 @@ async def test_search_works_tool():
 async def test_search_authors_tool():
     """Test search_authors_tool function."""
     with patch('src.openalex_mcp.server.search_authors', new_callable=AsyncMock) as mock_search:
-        from src.openalex_mcp.server import search_authors_tool
+        from src.openalex_mcp.server import OpenAlex_search_authors
 
         mock_search.return_value = [MagicMock(text="Mock author result")]
 
-        result = await search_authors_tool("John Doe", limit=5)
+        result = await OpenAlex_search_authors("John Doe", limit=5)
 
         assert result == "Mock author result"
         mock_search.assert_awaited_once()
@@ -62,11 +62,11 @@ async def test_search_authors_tool():
 async def test_search_institutions_tool():
     """Test search_institutions_tool function."""
     with patch('src.openalex_mcp.server.search_institutions', new_callable=AsyncMock) as mock_search:
-        from src.openalex_mcp.server import search_institutions_tool
+        from src.openalex_mcp.server import OpenAlex_search_institutions
 
         mock_search.return_value = [MagicMock(text="Mock institution result")]
 
-        result = await search_institutions_tool("Stanford", country="US")
+        result = await OpenAlex_search_institutions("Stanford", country="US")
 
         assert result == "Mock institution result"
         mock_search.assert_awaited_once()
@@ -76,11 +76,11 @@ async def test_search_institutions_tool():
 async def test_search_sources_tool():
     """Test search_sources_tool function."""
     with patch('src.openalex_mcp.server.search_sources', new_callable=AsyncMock) as mock_search:
-        from src.openalex_mcp.server import search_sources_tool
+        from src.openalex_mcp.server import OpenAlex_search_sources
 
         mock_search.return_value = [MagicMock(text="Mock source result")]
 
-        result = await search_sources_tool("Nature", source_type="journal")
+        result = await OpenAlex_search_sources("Nature", source_type="journal")
 
         assert result == "Mock source result"
         mock_search.assert_awaited_once()
@@ -90,11 +90,11 @@ async def test_search_sources_tool():
 async def test_get_work_details_tool():
     """Test get_work_details_tool function."""
     with patch('src.openalex_mcp.server.get_work_details', new_callable=AsyncMock) as mock_get:
-        from src.openalex_mcp.server import get_work_details_tool
+        from src.openalex_mcp.server import OpenAlex_get_work_details
 
         mock_get.return_value = [MagicMock(text="Mock work details")]
 
-        result = await get_work_details_tool("W123456789")
+        result = await OpenAlex_get_work_details("W123456789")
 
         assert result == "Mock work details"
         mock_get.assert_awaited_once()
@@ -104,11 +104,11 @@ async def test_get_work_details_tool():
 async def test_get_author_profile_tool():
     """Test get_author_profile_tool function."""
     with patch('src.openalex_mcp.server.get_author_profile', new_callable=AsyncMock) as mock_get:
-        from src.openalex_mcp.server import get_author_profile_tool
+        from src.openalex_mcp.server import OpenAlex_get_author_profile
 
         mock_get.return_value = [MagicMock(text="Mock author profile")]
 
-        result = await get_author_profile_tool("A123456789")
+        result = await OpenAlex_get_author_profile("A123456789")
 
         assert result == "Mock author profile"
         mock_get.assert_awaited_once()
@@ -118,11 +118,11 @@ async def test_get_author_profile_tool():
 async def test_get_citations_tool():
     """Test get_citations_tool function."""
     with patch('src.openalex_mcp.server.get_citations', new_callable=AsyncMock) as mock_get:
-        from src.openalex_mcp.server import get_citations_tool
+        from src.openalex_mcp.server import OpenAlex_get_citations
 
         mock_get.return_value = [MagicMock(text="Mock citations")]
 
-        result = await get_citations_tool("W123456789", sort="cited_by_count")
+        result = await OpenAlex_get_citations("W123456789", sort="cited_by_count")
 
         assert result == "Mock citations"
         mock_get.assert_awaited_once()
@@ -132,13 +132,13 @@ async def test_get_citations_tool():
 async def test_tool_with_exception():
     """Test tool behavior when underlying function raises exception."""
     with patch('src.openalex_mcp.server.search_works', new_callable=AsyncMock) as mock_search:
-        from src.openalex_mcp.server import search_works_tool
+        from src.openalex_mcp.server import OpenAlex_search_works
 
         mock_search.side_effect = Exception("Test error")
 
         # The tool doesn't handle exceptions - they bubble up
         with pytest.raises(Exception, match="Test error"):
-            await search_works_tool("test query")
+            await OpenAlex_search_works("test query")
 
         mock_search.assert_awaited_once()
 
@@ -151,7 +151,7 @@ async def test_tool_call_via_mcp():
         mock_search.return_value = [MagicMock(text="Mock result")]
 
         # Test that we can call tools through the FastMCP interface
-        result = await mcp.call_tool("search_works_tool", {"query": "test"})
+        result = await mcp.call_tool("OpenAlex_search_works", {"query": "test"})
 
         # FastMCP returns a tuple: (content, structured_content)
         assert isinstance(result, tuple)
