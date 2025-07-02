@@ -401,6 +401,12 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
     year_from = arguments.get("year_from")
     year_to = arguments.get("year_to")
 
+    # Ensure year values are integers
+    if year_from is not None:
+        year_from = int(year_from)
+    if year_to is not None:
+        year_to = int(year_to)
+
     if year_from and year_to:
         # Use date range filters for both
         filter_params["from_publication_date"] = f"{year_from}-01-01"
