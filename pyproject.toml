@@ -20,6 +20,9 @@ dev = [
     "mypy>=1.0.0"
 ]
 
+[project.scripts]
+openalex-mcp = "openalex_mcp.server:main"
+
 [tool.black]
 line-length = 88
 
