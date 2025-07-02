@@ -121,7 +121,7 @@ class TestSearchTools:
         mock_openalex_client.get_works.assert_called_once()
         call_args = mock_openalex_client.get_works.call_args
         assert call_args.kwargs["search"] == "machine learning"
-        assert call_args.kwargs["sort"] == "cited_by_count"
+        assert call_args.kwargs["sort"] is None  # cited_by_count is filtered out for works
         assert call_args.kwargs["per_page"] == 10
 
     @pytest.mark.asyncio

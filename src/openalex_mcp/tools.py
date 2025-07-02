@@ -373,7 +373,7 @@ DOWNLOAD_PAPER_TOOL = Tool(
             },
             "output_path": {
                 "type": "string",
-                "description": "Directory path where to save the PDF file (optional, defaults to current directory)"
+                "description": "Directory path where to save the PDF file (optional, defaults to ~/Downloads)"
             },
             "filename": {
                 "type": "string",
@@ -390,7 +390,7 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
     query = arguments["query"]
     limit = arguments.get("limit", 10)
     sort = arguments.get("sort")  # No default sort - let OpenAlex use relevance
-    
+
     # Filter out invalid sort values for works
     if sort == "cited_by_count":
         sort = None  # Use default relevance instead
@@ -620,12 +620,18 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
 async def get_work_details(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
     """Get detailed information about a specific work."""
     work_id = arguments["work_id"]
+    original_id = work_id  # Keep for error messages
 
-    # Handle DOI format
-    if work_id.startswith("10."):
+    # Extract work ID from full OpenAlex URL
+    if work_id.startswith("https://openalex.org/"):
+        work_id = work_id.split("/")[-1]  # Extract just the ID (W123456789)
+    # Handle DOI format - keep as full DOI URL for API
+    elif work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
-    elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
+    # If it's just a number, add W prefix
+    elif work_id.isdigit():
         work_id = f"W{work_id}"
+    # If it already starts with W or is a DOI URL, keep as is
 
     try:
         response = await client.get_works(work_id=work_id)
@@ -633,7 +639,7 @@ async def get_work_details(client: OpenAlexClient, arguments: Dict[str, Any]) ->
         if not response:
             return [TextContent(
                 type="text",
-                text=f"Work not found: {work_id}"
+                text=f"Work not found: {original_id}"
             )]
 
         work = response
@@ -723,11 +729,16 @@ async def get_citations(client: OpenAlexClient, arguments: Dict[str, Any]) -> Li
     limit = arguments.get("limit", 20)
     sort = arguments.get("sort", "publication_date")
 
-    # Handle DOI format
-    if work_id.startswith("10."):
+    # Extract work ID from full OpenAlex URL
+    if work_id.startswith("https://openalex.org/"):
+        work_id = work_id.split("/")[-1]  # Extract just the ID (W123456789)
+    # Handle DOI format - keep as full DOI URL for API
+    elif work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
-    elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
+    # If it's just a number, add W prefix
+    elif work_id.isdigit():
         work_id = f"W{work_id}"
+    # If it already starts with W or is a DOI URL, keep as is
 
     try:
         # Search for works that cite this work
@@ -766,14 +777,19 @@ async def get_citations(client: OpenAlexClient, arguments: Dict[str, Any]) -> Li
 async def download_paper(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
     """Download a paper's PDF if available through open access."""
     work_id = arguments["work_id"]
-    output_path = arguments.get("output_path", ".")
+    output_path = arguments.get("output_path", os.path.expanduser("~/Downloads"))
     custom_filename = arguments.get("filename")
 
-    # Handle DOI format
-    if work_id.startswith("10."):
+    # Extract work ID from full OpenAlex URL
+    if work_id.startswith("https://openalex.org/"):
+        work_id = work_id.split("/")[-1]  # Extract just the ID (W123456789)
+    # Handle DOI format - keep as full DOI URL for API
+    elif work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
-    elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
+    # If it's just a number, add W prefix
+    elif work_id.isdigit():
         work_id = f"W{work_id}"
+    # If it already starts with W or is a DOI URL, keep as is
 
     try:
         # First get the work details to find PDF URL
@@ -814,8 +830,26 @@ async def download_paper(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
             clean_title = clean_title.replace(' ', '_')[:50]  # Limit length
             custom_filename = f"{clean_title}.pdf"
 
-        # Ensure output directory exists
-        os.makedirs(output_path, exist_ok=True)
+        # Ensure output directory exists and is writable
+        try:
+            os.makedirs(output_path, exist_ok=True)
+            # Test if directory is writable
+            test_file = os.path.join(output_path, ".write_test")
+            try:
+                with open(test_file, "w") as f:
+                    f.write("test")
+                os.remove(test_file)
+            except (OSError, PermissionError):
+                # Fallback to home directory if Downloads is not writable
+                output_path = os.path.expanduser("~")
+                os.makedirs(output_path, exist_ok=True)
+        except (OSError, PermissionError) as e:
+            return [TextContent(
+                type="text",
+                text=f"Cannot create or write to directory: {output_path}\n"
+                     f"Error: {str(e)}\n"
+                     f"Please specify a writable output_path parameter."
+            )]
 
         # Full file path
         file_path = os.path.join(output_path, custom_filename)
