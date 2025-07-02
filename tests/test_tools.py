@@ -13,6 +13,7 @@ from src.openalex_mcp.tools import (
     get_work_details,
     get_author_profile,
     get_citations,
+    download_paper,
     format_work_summary,
     format_author_summary,
     format_institution_summary,
@@ -145,8 +146,8 @@ class TestSearchTools:
         call_args = mock_openalex_client.get_works.call_args
         filter_params = call_args.kwargs["filter_params"]
         
-        assert "author.display_name.search" in filter_params
-        assert filter_params["author.display_name.search"] == "John Doe"
+        assert "raw_author_name.search" in filter_params
+        assert filter_params["raw_author_name.search"] == "John Doe"
         assert "primary_location.source.display_name.search" in filter_params
         assert filter_params["primary_location.source.display_name.search"] == "Nature"
         assert "topics.display_name.search" in filter_params
@@ -376,7 +377,7 @@ class TestToolParameterHandling:
         await search_works(mock_openalex_client, arguments)
         
         call_args = mock_openalex_client.get_works.call_args
-        assert call_args.kwargs["sort"] == "relevance_score"  # default
+        assert call_args.kwargs["sort"] == "cited_by_count"  # default
         assert call_args.kwargs["per_page"] == 10  # default limit
 
     @pytest.mark.asyncio
@@ -401,3 +402,132 @@ class TestToolParameterHandling:
         assert "to_publication_date" in filter_params
         assert filter_params["from_publication_date"] == "2020-01-01"
         assert filter_params["to_publication_date"] == "2023-12-31"
+
+
+class TestDownloadPaper:
+    """Test the download_paper function."""
+
+    @pytest.mark.asyncio
+    async def test_download_paper_success(self, mock_openalex_client, sample_work_data, tmp_path):
+        """Test successful PDF download."""
+        # Mock work data with PDF URL
+        work_with_pdf = sample_work_data.copy()
+        work_with_pdf["is_oa"] = True
+        work_with_pdf["best_oa_location"] = {
+            "pdf_url": "https://example.com/paper.pdf"
+        }
+        
+        mock_openalex_client.get_works = AsyncMock(return_value=work_with_pdf)
+        
+        # Create a mock file for the test
+        test_file_path = tmp_path / "test_paper.pdf"
+        test_file_path.write_bytes(b"fake pdf content")
+        
+        async def mock_download_pdf(url, path):
+            # Simulate successful download by writing to the file
+            with open(path, "wb") as f:
+                f.write(b"fake pdf content")
+            return True
+        
+        mock_openalex_client.download_pdf = AsyncMock(side_effect=mock_download_pdf)
+        
+        arguments = {
+            "work_id": "W2741809807",
+            "output_path": str(tmp_path),
+            "filename": "test_paper.pdf"
+        }
+        
+        results = await download_paper(mock_openalex_client, arguments)
+        
+        assert len(results) == 1
+        assert "Successfully downloaded" in results[0].text
+        assert "Attention Is All You Need" in results[0].text
+        assert str(tmp_path) in results[0].text
+        
+        # Verify the download_pdf method was called
+        mock_openalex_client.download_pdf.assert_called_once()
+
+    @pytest.mark.asyncio 
+    async def test_download_paper_no_pdf_available(self, mock_openalex_client, sample_work_data):
+        """Test when no PDF is available."""
+        # Mock work data without PDF
+        work_without_pdf = sample_work_data.copy()
+        work_without_pdf["is_oa"] = False
+        work_without_pdf["best_oa_location"] = None
+        work_without_pdf["locations"] = []
+        
+        mock_openalex_client.get_works = AsyncMock(return_value=work_without_pdf)
+        
+        arguments = {"work_id": "W2741809807"}
+        
+        results = await download_paper(mock_openalex_client, arguments)
+        
+        assert len(results) == 1
+        assert "No open access PDF available" in results[0].text
+        assert "paywall" in results[0].text
+
+    @pytest.mark.asyncio
+    async def test_download_paper_work_not_found(self, mock_openalex_client):
+        """Test when work is not found."""
+        mock_openalex_client.get_works = AsyncMock(return_value=None)
+        
+        arguments = {"work_id": "W9999999"}
+        
+        results = await download_paper(mock_openalex_client, arguments)
+        
+        assert len(results) == 1
+        assert "Work not found" in results[0].text
+
+    @pytest.mark.asyncio
+    async def test_download_paper_download_fails(self, mock_openalex_client, sample_work_data):
+        """Test when PDF download fails."""
+        # Mock work data with PDF URL
+        work_with_pdf = sample_work_data.copy()
+        work_with_pdf["is_oa"] = True
+        work_with_pdf["best_oa_location"] = {
+            "pdf_url": "https://example.com/paper.pdf"
+        }
+        
+        mock_openalex_client.get_works = AsyncMock(return_value=work_with_pdf)
+        mock_openalex_client.download_pdf = AsyncMock(return_value=False)
+        
+        arguments = {"work_id": "W2741809807"}
+        
+        results = await download_paper(mock_openalex_client, arguments)
+        
+        assert len(results) == 1
+        assert "Failed to download PDF" in results[0].text
+        assert "Check logs for detailed error" in results[0].text
+
+    @pytest.mark.asyncio
+    async def test_download_paper_pdf_in_other_locations(self, mock_openalex_client, sample_work_data, tmp_path):
+        """Test finding PDF in other locations when best_oa_location doesn't have it."""
+        # Mock work data with PDF in other location
+        work_with_pdf = sample_work_data.copy()
+        work_with_pdf["is_oa"] = True
+        work_with_pdf["best_oa_location"] = {"pdf_url": None}  # No PDF in best location
+        work_with_pdf["locations"] = [
+            {"is_oa": False, "pdf_url": None},
+            {"is_oa": True, "pdf_url": "https://example.com/alt_paper.pdf"}
+        ]
+        
+        mock_openalex_client.get_works = AsyncMock(return_value=work_with_pdf)
+        
+        async def mock_download_pdf(url, path):
+            # Simulate successful download by writing to the file
+            with open(path, "wb") as f:
+                f.write(b"fake pdf content")
+            return True
+        
+        mock_openalex_client.download_pdf = AsyncMock(side_effect=mock_download_pdf)
+        
+        arguments = {"work_id": "W2741809807", "output_path": str(tmp_path)}
+        
+        results = await download_paper(mock_openalex_client, arguments)
+        
+        assert len(results) == 1
+        assert "Successfully downloaded" in results[0].text
+        
+        # Verify the correct URL was used
+        call_args = mock_openalex_client.download_pdf.call_args
+        assert call_args[0][0] == "https://example.com/alt_paper.pdf"

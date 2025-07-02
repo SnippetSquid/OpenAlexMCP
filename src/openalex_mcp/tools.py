@@ -1,6 +1,8 @@
 """MCP tools for OpenAlex API interactions."""
 
 import json
+import os
+import re
 from typing import Any, Dict, List, Optional
 
 from mcp.types import Tool, TextContent
@@ -361,18 +363,41 @@ GET_CITATIONS_TOOL = Tool(
     }
 )
 
+DOWNLOAD_PAPER_TOOL = Tool(
+    name="download_paper",
+    description="Download a paper's PDF if available through open access",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "work_id": {
+                "type": "string",
+                "description": "OpenAlex work ID (e.g., 'W2741809807') or DOI of the work to download"
+            },
+            "output_path": {
+                "type": "string",
+                "description": "Directory path where to save the PDF file (optional, defaults to current directory)"
+            },
+            "filename": {
+                "type": "string",
+                "description": "Custom filename for the PDF (optional, auto-generated if not provided)"
+            }
+        },
+        "required": ["work_id"]
+    }
+)
+
 
 async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
     """Search for works in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "relevance_score")
+    sort = arguments.get("sort", "cited_by_count")
     
     # Build filter parameters
     filter_params = {}
     
     if author := arguments.get("author"):
-        filter_params["author.display_name.search"] = author
+        filter_params["raw_author_name.search"] = author
     
     # Handle year range properly using separate filters
     year_from = arguments.get("year_from")
@@ -432,7 +457,7 @@ async def search_authors(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     """Search for authors in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "relevance_score")
+    sort = arguments.get("sort", "cited_by_count")
     
     # Build filter parameters
     filter_params = {}
@@ -485,7 +510,7 @@ async def search_institutions(client: OpenAlexClient, arguments: Dict[str, Any])
     """Search for institutions in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "relevance_score")
+    sort = arguments.get("sort", "cited_by_count")
     
     # Build filter parameters
     filter_params = {}
@@ -535,7 +560,7 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     """Search for sources in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "relevance_score")
+    sort = arguments.get("sort", "cited_by_count")
     
     # Build filter parameters
     filter_params = {}
@@ -727,4 +752,91 @@ async def get_citations(client: OpenAlexClient, arguments: Dict[str, Any]) -> Li
         return [TextContent(
             type="text",
             text=f"Error getting citations: {str(e)}"
+        )]
+
+
+async def download_paper(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
+    """Download a paper's PDF if available through open access."""
+    work_id = arguments["work_id"]
+    output_path = arguments.get("output_path", ".")
+    custom_filename = arguments.get("filename")
+    
+    # Handle DOI format
+    if work_id.startswith("10."):
+        work_id = f"https://doi.org/{work_id}"
+    elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
+        work_id = f"W{work_id}"
+    
+    try:
+        # First get the work details to find PDF URL
+        response = await client.get_works(work_id=work_id)
+        
+        if not response:
+            return [TextContent(
+                type="text",
+                text=f"Work not found: {work_id}"
+            )]
+        
+        work = response
+        title = work.get("title") or work.get("display_name", "Unknown Title")
+        
+        # Check if paper has open access PDF
+        pdf_url = None
+        if work.get("is_oa") and (best_oa := work.get("best_oa_location")):
+            pdf_url = best_oa.get("pdf_url")
+        
+        if not pdf_url:
+            # Check other locations for PDF
+            for location in work.get("locations", []):
+                if location.get("is_oa") and location.get("pdf_url"):
+                    pdf_url = location["pdf_url"]
+                    break
+        
+        if not pdf_url:
+            return [TextContent(
+                type="text",
+                text=f"No open access PDF available for: {title}\n"
+                     f"This paper may be behind a paywall or not available in PDF format."
+            )]
+        
+        # Generate filename if not provided
+        if not custom_filename:
+            # Clean title for filename
+            clean_title = re.sub(r'[<>:"/\\|?*]', '', title)
+            clean_title = clean_title.replace(' ', '_')[:50]  # Limit length
+            custom_filename = f"{clean_title}.pdf"
+        
+        # Ensure output directory exists
+        os.makedirs(output_path, exist_ok=True)
+        
+        # Full file path
+        file_path = os.path.join(output_path, custom_filename)
+        
+        # Download the PDF
+        success = await client.download_pdf(pdf_url, file_path)
+        
+        if success:
+            # Get file size for confirmation
+            file_size = os.path.getsize(file_path)
+            file_size_mb = file_size / (1024 * 1024)
+            
+            return [TextContent(
+                type="text",
+                text=f"Successfully downloaded: {title}\n"
+                     f"File: {file_path}\n"
+                     f"Size: {file_size_mb:.2f} MB\n"
+                     f"Source: {pdf_url}"
+            )]
+        else:
+            return [TextContent(
+                type="text",
+                text=f"Failed to download PDF for: {title}\n"
+                     f"URL: {pdf_url}\n"
+                     f"Check logs for detailed error information."
+            )]
+        
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"Error downloading paper: {str(e)}"
         )]

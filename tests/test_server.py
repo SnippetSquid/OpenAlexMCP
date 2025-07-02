@@ -10,7 +10,7 @@ from src.openalex_mcp.server import mcp
 async def test_list_tools():
     """Test that all expected tools are registered."""
     tools = await mcp.list_tools()
-    assert len(tools) == 7
+    assert len(tools) == 8
     
     tool_names = [tool.name for tool in tools]
     expected_tools = [
@@ -20,7 +20,8 @@ async def test_list_tools():
         "search_sources_tool",
         "get_work_details_tool",
         "get_author_profile_tool",
-        "get_citations_tool"
+        "get_citations_tool",
+        "download_paper_tool"
     ]
     
     for expected_tool in expected_tools:

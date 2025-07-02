@@ -13,6 +13,7 @@ from openalex_mcp.tools import (
     get_work_details,
     get_author_profile,
     get_citations,
+    download_paper,
 )
 
 # Initialize FastMCP server
@@ -178,6 +179,27 @@ async def get_citations_tool(
     async with client:
         result = await get_citations(client, arguments)
         return result[0].text if result else "No citations found"
+
+
+@mcp.tool()
+async def download_paper_tool(
+    work_id: str,
+    output_path: str = ".",
+    filename: str = None
+) -> str:
+    """Download a paper's PDF if available through open access."""
+    client = OpenAlexClient(email=email)
+    arguments = {
+        "work_id": work_id,
+        "output_path": output_path,
+        "filename": filename
+    }
+    # Remove None values
+    arguments = {k: v for k, v in arguments.items() if v is not None}
+    
+    async with client:
+        result = await download_paper(client, arguments)
+        return result[0].text if result else "Download failed"
 
 
 def main():

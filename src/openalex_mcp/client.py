@@ -271,3 +271,50 @@ class OpenAlexClient:
                     params["filter"] = ",".join(filters)
         
         return await self._make_request(endpoint, params)
+    
+    async def download_pdf(self, pdf_url: str, file_path: str) -> bool:
+        """Download a PDF from a given URL.
+        
+        Args:
+            pdf_url: URL of the PDF to download
+            file_path: Local path where to save the PDF
+            
+        Returns:
+            True if download was successful, False otherwise
+        """
+        if not self._client:
+            raise RuntimeError("Client not initialized. Use async context manager.")
+        
+        try:
+            async with self._rate_limiter:
+                if config.log_api_requests:
+                    logger.debug(f"Downloading PDF from: {pdf_url}")
+                
+                response = await self._client.get(pdf_url, follow_redirects=True)
+                response.raise_for_status()
+                
+                # Check if response contains PDF content
+                content_type = response.headers.get("content-type", "").lower()
+                if "pdf" not in content_type:
+                    logger.warning(f"Downloaded content may not be PDF: {content_type}")
+                
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                
+                if config.log_api_requests:
+                    logger.debug(f"PDF saved to: {file_path}")
+                
+                return True
+                
+        except httpx.HTTPStatusError as e:
+            error_msg = f"PDF download failed ({e.response.status_code}): {e.response.text}"
+            logger.error(error_msg)
+            return False
+        except httpx.RequestError as e:
+            error_msg = f"PDF download request failed: {str(e)}"
+            logger.error(error_msg)
+            return False
+        except IOError as e:
+            error_msg = f"Failed to save PDF file: {str(e)}"
+            logger.error(error_msg)
+            return False
