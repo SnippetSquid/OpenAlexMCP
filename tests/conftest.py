@@ -1,12 +1,10 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
-import json
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
-import pytest
 import httpx
+import pytest
 
 from src.openalex_mcp.client import OpenAlexClient
 

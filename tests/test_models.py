@@ -4,18 +4,15 @@ import pytest
 from pydantic import ValidationError
 
 from src.openalex_mcp.models import (
-    Work,
     Author,
-    InstitutionModel,
-    SourceModel,
-    TopicModel,
-    SearchResponse,
     AuthorInfo,
     Institution,
-    Authorship,
-    Source,
-    Location,
+    InstitutionModel,
+    SearchResponse,
+    SourceModel,
     Topic,
+    TopicModel,
+    Work,
 )
 
 
@@ -29,7 +26,7 @@ class TestBasicModels:
             display_name="John Doe",
             orcid="https://orcid.org/0000-0000-0000-0000"
         )
-        
+
         assert author_info.id == "https://openalex.org/A123"
         assert author_info.display_name == "John Doe"
         assert author_info.orcid == "https://orcid.org/0000-0000-0000-0000"
@@ -37,7 +34,7 @@ class TestBasicModels:
     def test_author_info_optional_fields(self):
         """Test AuthorInfo with optional fields."""
         author_info = AuthorInfo()
-        
+
         assert author_info.id is None
         assert author_info.display_name is None
         assert author_info.orcid is None
@@ -51,7 +48,7 @@ class TestBasicModels:
             country_code="US",
             type="education"
         )
-        
+
         assert institution.id == "https://openalex.org/I123"
         assert institution.display_name == "Test University"
         assert institution.country_code == "US"
@@ -63,7 +60,7 @@ class TestBasicModels:
             display_name="Machine Learning",
             score=0.95
         )
-        
+
         assert topic.id == "https://openalex.org/T123"
         assert topic.display_name == "Machine Learning"
         assert topic.score == 0.95
@@ -75,7 +72,7 @@ class TestWorkModel:
     def test_work_creation_minimal(self):
         """Test Work creation with minimal required fields."""
         work = Work(id="https://openalex.org/W123")
-        
+
         assert work.id == "https://openalex.org/W123"
         assert work.doi is None
         assert work.title is None
@@ -85,7 +82,7 @@ class TestWorkModel:
     def test_work_creation_full(self, sample_work_data):
         """Test Work creation with full data."""
         work = Work(**sample_work_data)
-        
+
         assert work.id == sample_work_data["id"]
         assert work.title == sample_work_data["title"]
         assert work.publication_year == sample_work_data["publication_year"]
@@ -96,7 +93,7 @@ class TestWorkModel:
     def test_work_authorship_nested(self, sample_work_data):
         """Test Work with nested authorship data."""
         work = Work(**sample_work_data)
-        
+
         authorship = work.authorships[0]
         assert authorship.author_position == "first"
         assert authorship.author.display_name == "Ashish Vaswani"
@@ -106,7 +103,7 @@ class TestWorkModel:
     def test_work_primary_location(self, sample_work_data):
         """Test Work with primary location data."""
         work = Work(**sample_work_data)
-        
+
         assert work.primary_location is not None
         assert work.primary_location.source.display_name == "arXiv (Cornell University)"
         assert work.primary_location.is_oa is True
@@ -123,7 +120,7 @@ class TestAuthorModel:
     def test_author_creation_minimal(self):
         """Test Author creation with minimal required fields."""
         author = Author(id="https://openalex.org/A123")
-        
+
         assert author.id == "https://openalex.org/A123"
         assert author.display_name is None
         assert author.works_count is None
@@ -132,7 +129,7 @@ class TestAuthorModel:
     def test_author_creation_full(self, sample_author_data):
         """Test Author creation with full data."""
         author = Author(**sample_author_data)
-        
+
         assert author.id == sample_author_data["id"]
         assert author.display_name == sample_author_data["display_name"]
         assert author.works_count == sample_author_data["works_count"]
@@ -142,7 +139,7 @@ class TestAuthorModel:
     def test_author_institution_relationship(self, sample_author_data):
         """Test Author with institution relationship."""
         author = Author(**sample_author_data)
-        
+
         assert author.last_known_institution is not None
         assert author.last_known_institution.display_name == "Google"
         assert len(author.affiliations) == 1
@@ -154,7 +151,7 @@ class TestInstitutionModel:
     def test_institution_creation_minimal(self):
         """Test Institution creation with minimal required fields."""
         institution = InstitutionModel(id="https://openalex.org/I123")
-        
+
         assert institution.id == "https://openalex.org/I123"
         assert institution.display_name is None
         assert institution.works_count is None
@@ -162,7 +159,7 @@ class TestInstitutionModel:
     def test_institution_creation_full(self, sample_institution_data):
         """Test Institution creation with full data."""
         institution = InstitutionModel(**sample_institution_data)
-        
+
         assert institution.id == sample_institution_data["id"]
         assert institution.display_name == sample_institution_data["display_name"]
         assert institution.country_code == sample_institution_data["country_code"]
@@ -175,7 +172,7 @@ class TestSourceModel:
     def test_source_creation_minimal(self):
         """Test Source creation with minimal required fields."""
         source = SourceModel(id="https://openalex.org/S123")
-        
+
         assert source.id == "https://openalex.org/S123"
         assert source.display_name is None
         assert source.issn is None
@@ -183,7 +180,7 @@ class TestSourceModel:
     def test_source_creation_full(self, sample_source_data):
         """Test Source creation with full data."""
         source = SourceModel(**sample_source_data)
-        
+
         assert source.id == sample_source_data["id"]
         assert source.display_name == sample_source_data["display_name"]
         assert source.issn_l == sample_source_data["issn_l"]
@@ -196,7 +193,7 @@ class TestTopicModel:
     def test_topic_creation_minimal(self):
         """Test Topic creation with minimal required fields."""
         topic = TopicModel(id="https://openalex.org/T123")
-        
+
         assert topic.id == "https://openalex.org/T123"
         assert topic.display_name is None
         assert topic.keywords == []
@@ -210,9 +207,9 @@ class TestTopicModel:
             "field": {"id": "F123", "display_name": "Computer Science"},
             "domain": {"id": "D123", "display_name": "Physical Sciences"}
         }
-        
+
         topic = TopicModel(**topic_data)
-        
+
         assert topic.subfield["display_name"] == "AI"
         assert topic.field["display_name"] == "Computer Science"
         assert topic.domain["display_name"] == "Physical Sciences"
@@ -234,9 +231,9 @@ class TestSearchResponse:
                 {"id": "W456", "title": "Another Work"}
             ]
         }
-        
+
         response = SearchResponse(**response_data)
-        
+
         assert response.meta["count"] == 100
         assert len(response.results) == 2
         assert response.group_by is None
@@ -251,9 +248,9 @@ class TestSearchResponse:
                 {"key": "2022", "count": 25}
             ]
         }
-        
+
         response = SearchResponse(**response_data)
-        
+
         assert len(response.group_by) == 2
         assert response.group_by[0]["key"] == "2023"
 
@@ -265,14 +262,14 @@ class TestModelValidation:
         """Test Work creation without required ID."""
         with pytest.raises(ValidationError) as exc_info:
             Work()
-        
+
         assert "id" in str(exc_info.value)
 
     def test_author_missing_id(self):
         """Test Author creation without required ID."""
         with pytest.raises(ValidationError) as exc_info:
             Author()
-        
+
         assert "id" in str(exc_info.value)
 
     def test_work_invalid_year(self):
@@ -300,7 +297,7 @@ class TestModelDefaults:
     def test_work_list_defaults(self):
         """Test Work model list field defaults."""
         work = Work(id="W123")
-        
+
         assert work.authorships == []
         assert work.locations == []
         assert work.topics == []
@@ -311,7 +308,7 @@ class TestModelDefaults:
     def test_author_list_defaults(self):
         """Test Author model list field defaults."""
         author = Author(id="A123")
-        
+
         assert author.display_name_alternatives == []
         assert author.affiliations == []
         assert author.topics == []
@@ -320,7 +317,7 @@ class TestModelDefaults:
     def test_institution_list_defaults(self):
         """Test Institution model list field defaults."""
         institution = InstitutionModel(id="I123")
-        
+
         assert institution.display_name_alternatives == []
         assert institution.display_name_acronyms == []
         assert institution.associated_institutions == []

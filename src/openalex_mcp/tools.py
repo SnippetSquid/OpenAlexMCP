@@ -1,47 +1,45 @@
 """MCP tools for OpenAlex API interactions."""
 
-import json
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 from openalex_mcp.client import OpenAlexClient
-from openalex_mcp.logutil import logger
 
 
 def format_work_summary(work: Dict[str, Any]) -> str:
     """Format a work into a readable summary."""
     title = work.get("title") or work.get("display_name", "Unknown Title")
     authors = []
-    
+
     for authorship in work.get("authorships", []):
         if author := authorship.get("author"):
             if name := author.get("display_name"):
                 authors.append(name)
-    
+
     authors_str = ", ".join(authors[:5])  # Limit to first 5 authors
     if len(work.get("authorships", [])) > 5:
         authors_str += " et al."
-    
+
     year = work.get("publication_year", "Unknown")
     citations = work.get("cited_by_count", 0)
-    
+
     # Get venue/source
     venue = "Unknown Venue"
     if primary_location := work.get("primary_location"):
         if source := primary_location.get("source"):
             venue = source.get("display_name", venue)
-    
+
     # Get topics
     topics = []
     for topic in work.get("topics", [])[:3]:  # First 3 topics
         if topic_name := topic.get("display_name"):
             topics.append(topic_name)
-    
+
     topics_str = ", ".join(topics) if topics else "No topics"
-    
+
     return (
         f"**{title}**\n"
         f"Authors: {authors_str}\n"
@@ -59,20 +57,20 @@ def format_author_summary(author: Dict[str, Any]) -> str:
     works_count = author.get("works_count", 0)
     citations = author.get("cited_by_count", 0)
     h_index = author.get("h_index", 0)
-    
+
     # Institution
     institution = "Unknown Institution"
     if last_inst := author.get("last_known_institution"):
         institution = last_inst.get("display_name", institution)
-    
+
     # Topics
     topics = []
     for topic in author.get("topics", [])[:3]:  # First 3 topics
         if topic_name := topic.get("display_name"):
             topics.append(topic_name)
-    
+
     topics_str = ", ".join(topics) if topics else "No topics"
-    
+
     return (
         f"**{name}**\n"
         f"ORCID: {orcid}\n"
@@ -92,7 +90,7 @@ def format_institution_summary(institution: Dict[str, Any]) -> str:
     citations = institution.get("cited_by_count", 0)
     ror = institution.get("ror", "No ROR")
     homepage = institution.get("homepage_url", "No homepage")
-    
+
     return (
         f"**{name}**\n"
         f"Type: {inst_type} | Country: {country}\n"
@@ -112,12 +110,12 @@ def format_source_summary(source: Dict[str, Any]) -> str:
     works_count = source.get("works_count", 0)
     citations = source.get("cited_by_count", 0)
     h_index = source.get("h_index", 0)
-    
+
     # Publisher
     publisher = "Unknown Publisher"
     if host_org := source.get("host_organization_name"):
         publisher = host_org
-    
+
     return (
         f"**{name}**\n"
         f"Type: {source_type} | Publisher: {publisher}\n"
@@ -139,7 +137,7 @@ SEARCH_WORKS_TOOL = Tool(
                 "description": "Search query for works (title, abstract, keywords)"
             },
             "author": {
-                "type": "string", 
+                "type": "string",
                 "description": "Filter by author name"
             },
             "year_from": {
@@ -147,7 +145,7 @@ SEARCH_WORKS_TOOL = Tool(
                 "description": "Filter works from this year onwards"
             },
             "year_to": {
-                "type": "integer", 
+                "type": "integer",
                 "description": "Filter works up to this year"
             },
             "venue": {
@@ -164,8 +162,8 @@ SEARCH_WORKS_TOOL = Tool(
             },
             "sort": {
                 "type": "string",
-                "enum": ["relevance_score", "cited_by_count", "publication_date"],
-                "description": "Sort order for results"
+                "enum": ["cited_by_count", "publication_date"],
+                "description": "Sort order for results (default: relevance)"
             },
             "limit": {
                 "type": "integer",
@@ -194,7 +192,7 @@ SEARCH_AUTHORS_TOOL = Tool(
                 "description": "Filter by institution name"
             },
             "topic": {
-                "type": "string", 
+                "type": "string",
                 "description": "Filter by research area/topic"
             },
             "h_index_min": {
@@ -246,7 +244,7 @@ SEARCH_INSTITUTIONS_TOOL = Tool(
                 "description": "Minimum number of works"
             },
             "sort": {
-                "type": "string", 
+                "type": "string",
                 "enum": ["relevance_score", "cited_by_count", "works_count"],
                 "description": "Sort order for results"
             },
@@ -328,7 +326,7 @@ GET_AUTHOR_PROFILE_TOOL = Tool(
         "type": "object",
         "properties": {
             "author_id": {
-                "type": "string", 
+                "type": "string",
                 "description": "OpenAlex author ID (e.g., 'A5023888391') or ORCID"
             }
         },
@@ -391,18 +389,18 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
     """Search for works in OpenAlex."""
     query = arguments["query"]
     limit = arguments.get("limit", 10)
-    sort = arguments.get("sort", "cited_by_count")
-    
+    sort = arguments.get("sort")  # No default sort - let OpenAlex use relevance
+
     # Build filter parameters
     filter_params = {}
-    
+
     if author := arguments.get("author"):
         filter_params["raw_author_name.search"] = author
-    
+
     # Handle year range properly using separate filters
     year_from = arguments.get("year_from")
     year_to = arguments.get("year_to")
-    
+
     if year_from and year_to:
         # Use date range filters for both
         filter_params["from_publication_date"] = f"{year_from}-01-01"
@@ -411,16 +409,16 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
         filter_params["publication_year"] = f">={year_from}"
     elif year_to:
         filter_params["publication_year"] = f"<={year_to}"
-    
+
     if venue := arguments.get("venue"):
         filter_params["primary_location.source.display_name.search"] = venue
-    
+
     if topic := arguments.get("topic"):
         filter_params["topics.display_name.search"] = topic
-    
+
     if arguments.get("open_access"):
         filter_params["is_oa"] = "true"
-    
+
     try:
         response = await client.get_works(
             search=query,
@@ -428,27 +426,27 @@ async def search_works(client: OpenAlexClient, arguments: Dict[str, Any]) -> Lis
             sort=sort,
             per_page=limit
         )
-        
+
         results = response.get("results", [])
         meta = response.get("meta", {})
-        
+
         if not results:
             return [TextContent(
                 type="text",
                 text=f"No works found for query: '{query}'"
             )]
-        
+
         # Format results
         content = f"Found {meta.get('count', len(results))} works for '{query}':\n\n"
-        
+
         for i, work in enumerate(results, 1):
             content += f"{i}. {format_work_summary(work)}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
-            type="text", 
+            type="text",
             text=f"Error searching works: {str(e)}"
         )]
 
@@ -458,22 +456,22 @@ async def search_authors(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     query = arguments["query"]
     limit = arguments.get("limit", 10)
     sort = arguments.get("sort", "cited_by_count")
-    
+
     # Build filter parameters
     filter_params = {}
-    
+
     if institution := arguments.get("institution"):
         filter_params["last_known_institution.display_name.search"] = institution
-    
+
     if topic := arguments.get("topic"):
         filter_params["topics.display_name.search"] = topic
-    
+
     if h_index_min := arguments.get("h_index_min"):
         filter_params["h_index"] = f">={h_index_min}"
-    
+
     if works_count_min := arguments.get("works_count_min"):
         filter_params["works_count"] = f">={works_count_min}"
-    
+
     try:
         response = await client.get_authors(
             search=query,
@@ -481,24 +479,24 @@ async def search_authors(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
             sort=sort,
             per_page=limit
         )
-        
+
         results = response.get("results", [])
         meta = response.get("meta", {})
-        
+
         if not results:
             return [TextContent(
                 type="text",
                 text=f"No authors found for query: '{query}'"
             )]
-        
+
         # Format results
         content = f"Found {meta.get('count', len(results))} authors for '{query}':\n\n"
-        
+
         for i, author in enumerate(results, 1):
             content += f"{i}. {format_author_summary(author)}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -511,19 +509,19 @@ async def search_institutions(client: OpenAlexClient, arguments: Dict[str, Any])
     query = arguments["query"]
     limit = arguments.get("limit", 10)
     sort = arguments.get("sort", "cited_by_count")
-    
+
     # Build filter parameters
     filter_params = {}
-    
+
     if country := arguments.get("country"):
         filter_params["country_code"] = country
-    
+
     if inst_type := arguments.get("type"):
         filter_params["type"] = inst_type
-    
+
     if works_count_min := arguments.get("works_count_min"):
         filter_params["works_count"] = f">={works_count_min}"
-    
+
     try:
         response = await client.get_institutions(
             search=query,
@@ -531,24 +529,24 @@ async def search_institutions(client: OpenAlexClient, arguments: Dict[str, Any])
             sort=sort,
             per_page=limit
         )
-        
+
         results = response.get("results", [])
         meta = response.get("meta", {})
-        
+
         if not results:
             return [TextContent(
                 type="text",
                 text=f"No institutions found for query: '{query}'"
             )]
-        
+
         # Format results
         content = f"Found {meta.get('count', len(results))} institutions for '{query}':\n\n"
-        
+
         for i, institution in enumerate(results, 1):
             content += f"{i}. {format_institution_summary(institution)}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -561,22 +559,22 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     query = arguments["query"]
     limit = arguments.get("limit", 10)
     sort = arguments.get("sort", "cited_by_count")
-    
+
     # Build filter parameters
     filter_params = {}
-    
+
     if source_type := arguments.get("type"):
         filter_params["type"] = source_type
-    
+
     if publisher := arguments.get("publisher"):
         filter_params["host_organization_name.search"] = publisher
-    
+
     if arguments.get("open_access"):
         filter_params["is_oa"] = "true"
-    
+
     if works_count_min := arguments.get("works_count_min"):
         filter_params["works_count"] = f">={works_count_min}"
-    
+
     try:
         response = await client.get_sources(
             search=query,
@@ -584,24 +582,24 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
             sort=sort,
             per_page=limit
         )
-        
+
         results = response.get("results", [])
         meta = response.get("meta", {})
-        
+
         if not results:
             return [TextContent(
                 type="text",
                 text=f"No sources found for query: '{query}'"
             )]
-        
+
         # Format results
         content = f"Found {meta.get('count', len(results))} sources for '{query}':\n\n"
-        
+
         for i, source in enumerate(results, 1):
             content += f"{i}. {format_source_summary(source)}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -612,49 +610,49 @@ async def search_sources(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
 async def get_work_details(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
     """Get detailed information about a specific work."""
     work_id = arguments["work_id"]
-    
+
     # Handle DOI format
     if work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
     elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
         work_id = f"W{work_id}"
-    
+
     try:
         response = await client.get_works(work_id=work_id)
-        
+
         if not response:
             return [TextContent(
                 type="text",
                 text=f"Work not found: {work_id}"
             )]
-        
+
         work = response
-        
+
         # Format detailed work information
         content = format_work_summary(work)
-        
+
         # Add additional details
         if doi := work.get("doi"):
             content += f"DOI: {doi}\n"
-        
+
         if abstract := work.get("abstract_inverted_index"):
             # Convert inverted index to abstract (simplified)
-            content += f"Has abstract: Yes\n"
+            content += "Has abstract: Yes\n"
         else:
-            content += f"Has abstract: No\n"
-        
+            content += "Has abstract: No\n"
+
         if work.get("is_oa"):
-            content += f"Open Access: Yes\n"
+            content += "Open Access: Yes\n"
             if best_oa := work.get("best_oa_location"):
                 if pdf_url := best_oa.get("pdf_url"):
                     content += f"PDF URL: {pdf_url}\n"
-        
+
         # Add reference count
         ref_count = len(work.get("referenced_works", []))
         content += f"References: {ref_count} works\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -665,27 +663,27 @@ async def get_work_details(client: OpenAlexClient, arguments: Dict[str, Any]) ->
 async def get_author_profile(client: OpenAlexClient, arguments: Dict[str, Any]) -> List[TextContent]:
     """Get detailed profile information about a specific author."""
     author_id = arguments["author_id"]
-    
+
     # Handle ORCID format
     if author_id.startswith("0000-"):
         author_id = f"https://orcid.org/{author_id}"
     elif not author_id.startswith(("A", "https://openalex.org/A", "https://orcid.org/")):
         author_id = f"A{author_id}"
-    
+
     try:
         response = await client.get_authors(author_id=author_id)
-        
+
         if not response:
             return [TextContent(
                 type="text",
                 text=f"Author not found: {author_id}"
             )]
-        
+
         author = response
-        
+
         # Format detailed author information
         content = format_author_summary(author)
-        
+
         # Add career timeline
         if counts_by_year := author.get("counts_by_year", []):
             recent_years = sorted(counts_by_year, key=lambda x: x.get("year", 0), reverse=True)[:5]
@@ -695,13 +693,13 @@ async def get_author_profile(client: OpenAlexClient, arguments: Dict[str, Any]) 
                 works = year_data.get("works_count", 0)
                 citations = year_data.get("cited_by_count", 0)
                 content += f"- {year}: {works} works, {citations} citations\n"
-        
+
         # Add alternative names
         if alt_names := author.get("display_name_alternatives", []):
             content += f"\n**Alternative names:** {', '.join(alt_names[:3])}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -714,40 +712,40 @@ async def get_citations(client: OpenAlexClient, arguments: Dict[str, Any]) -> Li
     work_id = arguments["work_id"]
     limit = arguments.get("limit", 20)
     sort = arguments.get("sort", "publication_date")
-    
+
     # Handle DOI format
     if work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
     elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
         work_id = f"W{work_id}"
-    
+
     try:
         # Search for works that cite this work
         filter_params = {"cites": work_id}
-        
+
         response = await client.get_works(
             filter_params=filter_params,
             sort=sort,
             per_page=limit
         )
-        
+
         results = response.get("results", [])
         meta = response.get("meta", {})
-        
+
         if not results:
             return [TextContent(
                 type="text",
                 text=f"No citations found for work: {work_id}"
             )]
-        
+
         # Format results
         content = f"Found {meta.get('count', len(results))} works citing {work_id}:\n\n"
-        
+
         for i, work in enumerate(results, 1):
             content += f"{i}. {format_work_summary(work)}\n"
-        
+
         return [TextContent(type="text", text=content)]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",
@@ -760,66 +758,66 @@ async def download_paper(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
     work_id = arguments["work_id"]
     output_path = arguments.get("output_path", ".")
     custom_filename = arguments.get("filename")
-    
+
     # Handle DOI format
     if work_id.startswith("10."):
         work_id = f"https://doi.org/{work_id}"
     elif not work_id.startswith(("W", "https://openalex.org/W", "https://doi.org/")):
         work_id = f"W{work_id}"
-    
+
     try:
         # First get the work details to find PDF URL
         response = await client.get_works(work_id=work_id)
-        
+
         if not response:
             return [TextContent(
                 type="text",
                 text=f"Work not found: {work_id}"
             )]
-        
+
         work = response
         title = work.get("title") or work.get("display_name", "Unknown Title")
-        
+
         # Check if paper has open access PDF
         pdf_url = None
         if work.get("is_oa") and (best_oa := work.get("best_oa_location")):
             pdf_url = best_oa.get("pdf_url")
-        
+
         if not pdf_url:
             # Check other locations for PDF
             for location in work.get("locations", []):
                 if location.get("is_oa") and location.get("pdf_url"):
                     pdf_url = location["pdf_url"]
                     break
-        
+
         if not pdf_url:
             return [TextContent(
                 type="text",
                 text=f"No open access PDF available for: {title}\n"
                      f"This paper may be behind a paywall or not available in PDF format."
             )]
-        
+
         # Generate filename if not provided
         if not custom_filename:
             # Clean title for filename
             clean_title = re.sub(r'[<>:"/\\|?*]', '', title)
             clean_title = clean_title.replace(' ', '_')[:50]  # Limit length
             custom_filename = f"{clean_title}.pdf"
-        
+
         # Ensure output directory exists
         os.makedirs(output_path, exist_ok=True)
-        
+
         # Full file path
         file_path = os.path.join(output_path, custom_filename)
-        
+
         # Download the PDF
         success = await client.download_pdf(pdf_url, file_path)
-        
+
         if success:
             # Get file size for confirmation
             file_size = os.path.getsize(file_path)
             file_size_mb = file_size / (1024 * 1024)
-            
+
             return [TextContent(
                 type="text",
                 text=f"Successfully downloaded: {title}\n"
@@ -834,7 +832,7 @@ async def download_paper(client: OpenAlexClient, arguments: Dict[str, Any]) -> L
                      f"URL: {pdf_url}\n"
                      f"Check logs for detailed error information."
             )]
-        
+
     except Exception as e:
         return [TextContent(
             type="text",

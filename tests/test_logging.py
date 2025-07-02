@@ -3,8 +3,6 @@
 import logging
 from unittest.mock import patch
 
-import pytest
-
 from src.openalex_mcp.logutil import setup_logging
 
 
@@ -14,7 +12,7 @@ class TestLoggingSetup:
     def test_setup_logging_default(self):
         """Test logging setup with default configuration."""
         logger = setup_logging()
-        
+
         assert logger is not None
         assert logger.name == "openalex_mcp"
         assert logger.level == logging.INFO  # Default from config
@@ -24,41 +22,41 @@ class TestLoggingSetup:
     def test_setup_logging_custom_name(self):
         """Test logging setup with custom logger name."""
         logger = setup_logging("custom_logger")
-        
+
         assert logger.name == "custom_logger"
 
     @patch('src.openalex_mcp.logutil.config')
     def test_setup_logging_debug_level(self, mock_config):
         """Test logging setup with DEBUG level."""
         mock_config.log_level = "DEBUG"
-        
+
         logger = setup_logging()
-        
+
         assert logger.level == logging.DEBUG
 
     @patch('src.openalex_mcp.logutil.config')
     def test_setup_logging_warning_level(self, mock_config):
         """Test logging setup with WARNING level."""
         mock_config.log_level = "WARNING"
-        
+
         logger = setup_logging()
-        
+
         assert logger.level == logging.WARNING
 
     @patch('src.openalex_mcp.logutil.config')
     def test_setup_logging_invalid_level(self, mock_config):
         """Test logging setup with invalid level defaults to INFO."""
         mock_config.log_level = "INVALID_LEVEL"
-        
+
         logger = setup_logging()
-        
+
         # Should default to INFO for invalid level
         assert logger.level == logging.INFO
 
     def test_logger_no_propagation(self):
         """Test that logger doesn't propagate to root logger."""
         logger = setup_logging()
-        
+
         assert logger.propagate is False
 
     def test_logger_handler_configuration(self):
@@ -83,10 +81,10 @@ class TestLoggingSetup:
         # First setup
         logger1 = setup_logging("test_clear")
         initial_handler_count = len(logger1.handlers)
-        
+
         # Second setup should clear and recreate
         logger2 = setup_logging("test_clear")
-        
+
         assert len(logger2.handlers) == initial_handler_count
         assert logger1 is logger2  # Same logger instance
 
@@ -94,7 +92,7 @@ class TestLoggingSetup:
         """Test creating multiple logger instances."""
         logger1 = setup_logging("logger1")
         logger2 = setup_logging("logger2")
-        
+
         assert logger1.name == "logger1"
         assert logger2.name == "logger2"
         assert logger1 is not logger2
@@ -106,7 +104,7 @@ class TestDefaultLogger:
     def test_default_logger_exists(self):
         """Test that default logger instance exists."""
         from src.openalex_mcp.logutil import logger
-        
+
         assert logger is not None
         assert isinstance(logger, logging.Logger)
         assert logger.name == "openalex_mcp"
@@ -114,14 +112,14 @@ class TestDefaultLogger:
     def test_default_logger_level(self):
         """Test default logger level."""
         from src.openalex_mcp.logutil import logger
-        
+
         # Should be INFO by default
         assert logger.level == logging.INFO
 
     def test_default_logger_handlers(self):
         """Test default logger has handlers."""
         from src.openalex_mcp.logutil import logger
-        
+
         assert len(logger.handlers) > 0
         assert isinstance(logger.handlers[0], logging.StreamHandler)
 

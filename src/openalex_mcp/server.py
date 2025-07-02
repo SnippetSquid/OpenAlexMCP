@@ -1,19 +1,19 @@
 """OpenAlex MCP Server - Main server implementation using FastMCP."""
 
 import os
-from typing import Any, Dict, List
+
 from mcp.server.fastmcp import FastMCP
 
 from openalex_mcp.client import OpenAlexClient
 from openalex_mcp.tools import (
-    search_works,
+    download_paper,
+    get_author_profile,
+    get_citations,
+    get_work_details,
     search_authors,
     search_institutions,
     search_sources,
-    get_work_details,
-    get_author_profile,
-    get_citations,
-    download_paper,
+    search_works,
 )
 
 # Initialize FastMCP server
@@ -49,7 +49,7 @@ async def search_works_tool(
     }
     # Remove None values
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    
+
     async with client:
         result = await search_works(client, arguments)
         return result[0].text if result else "No results found"
@@ -78,7 +78,7 @@ async def search_authors_tool(
     }
     # Remove None values
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    
+
     async with client:
         result = await search_authors(client, arguments)
         return result[0].text if result else "No results found"
@@ -105,7 +105,7 @@ async def search_institutions_tool(
     }
     # Remove None values
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    
+
     async with client:
         result = await search_institutions(client, arguments)
         return result[0].text if result else "No results found"
@@ -134,7 +134,7 @@ async def search_sources_tool(
     }
     # Remove None values
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    
+
     async with client:
         result = await search_sources(client, arguments)
         return result[0].text if result else "No results found"
@@ -145,7 +145,7 @@ async def get_work_details_tool(work_id: str) -> str:
     """Get detailed information about a specific work by its OpenAlex ID or DOI."""
     client = OpenAlexClient(email=email)
     arguments = {"work_id": work_id}
-    
+
     async with client:
         result = await get_work_details(client, arguments)
         return result[0].text if result else "Work not found"
@@ -156,7 +156,7 @@ async def get_author_profile_tool(author_id: str) -> str:
     """Get detailed profile information about a specific author by their OpenAlex ID or ORCID."""
     client = OpenAlexClient(email=email)
     arguments = {"author_id": author_id}
-    
+
     async with client:
         result = await get_author_profile(client, arguments)
         return result[0].text if result else "Author not found"
@@ -175,7 +175,7 @@ async def get_citations_tool(
         "sort": sort,
         "limit": limit
     }
-    
+
     async with client:
         result = await get_citations(client, arguments)
         return result[0].text if result else "No citations found"
@@ -196,7 +196,7 @@ async def download_paper_tool(
     }
     # Remove None values
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    
+
     async with client:
         result = await download_paper(client, arguments)
         return result[0].text if result else "Download failed"
